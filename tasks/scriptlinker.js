@@ -22,7 +22,11 @@ module.exports = function(grunt) {
 			endTag: '<!--SCRIPTS END-->',
 			fileTmpl: '<script src="%s"></script>',
 			appRoot: '',
-			relative: false
+			relative: false,
+			cdn: {
+				domain: '',
+				sslEnabled: false
+			}
 		});
 
 
@@ -34,26 +38,47 @@ module.exports = function(grunt) {
 				start = -1,
 				end = -1;
 
-			// Create string tags
-			scripts = f.src.filter(function (filepath) {
-					// Warn on and remove invalid source files (if nonull was set).
-					if (!grunt.file.exists(filepath)) {
-						grunt.log.warn('Source file "' + filepath + '" not found.');
-						return false;
-					} else { return true; }
-				}).map(function (filepath) {
-					filepath = filepath.replace(options.appRoot, '');
-					// If "relative" option is set, remove initial forward slash from file path
+			// Check if CDN option exists
+			if(options.cdn.domain!=''){
+				var src = '';
+				// In production mode, check for SSL
+				if(options.cdn.sslEnabled){
+					src = '//' + options.cdn.domain + '/'; // Allow for http request when ssl is not used
+				}else{
+					src = 'http://' + options.cdn.domain + '/';
+				}
+
+				scripts = f.orig.src.map(function (filepath) {
 					if (options.relative) {
 						filepath = filepath.replace(/^\//,'');
 					}
-					filepath = (options.prefix||'') + filepath;
-					if (options.fileRef) {
-						return options.fileRef(filepath);
-					} else {
-						return util.format(options.fileTmpl, filepath);
-					}
+					return util.format(options.fileTmpl, src + filepath);
 				});
+
+			}else{
+				// Create string tags without CDN domain
+				scripts = f.src.filter(function (filepath) {
+						// Warn on and remove invalid source files (if nonull was set).
+						if (!grunt.file.exists(filepath)) {
+							grunt.log.warn('Source file "' + filepath + '" not found.');
+							return false;
+						} else { return true; }
+					}).map(function (filepath) {
+						filepath = filepath.replace(options.appRoot, '');
+						// If "relative" option is set, remove initial forward slash from file path
+						if (options.relative) {
+							filepath = filepath.replace(/^\//,'');
+						}
+						filepath = (options.prefix||'') + filepath;
+						if (options.fileRef) {
+							return options.fileRef(filepath);
+						} else {
+							return util.format(options.fileTmpl, filepath);
+						}
+					});
+				
+			}
+
 
 			grunt.file.expand({}, f.dest).forEach(function(dest){
 				page = grunt.file.read(dest);
